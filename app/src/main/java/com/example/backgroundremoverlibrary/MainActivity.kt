@@ -7,21 +7,20 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
-import android.provider.MediaStore
-import android.util.Config
 import android.util.Log
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.graphics.get
+import androidx.lifecycle.lifecycleScope
 import com.example.backgroundremoverlibrary.databinding.ActivityMainBinding
 import com.github.dhaval2404.imagepicker.ImagePicker
 import com.slowmac.autobackgroundremover.BackgroundRemover
 import com.slowmac.autobackgroundremover.OnBackgroundChangeListener
-import java.io.FileDescriptor
-import java.io.FileNotFoundException
-import java.io.IOException
-import java.io.InputStream
-import kotlin.math.floor
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
+import java.io.*
 
 
 class MainActivity : AppCompatActivity() {
@@ -69,11 +68,6 @@ class MainActivity : AppCompatActivity() {
 
                 if (bitmap != null) {
 
-//                    for (y in 0 until bitmap.height) {
-//                        for (x in 0 until bitmap.width) {
-//                            Log.d("TTT" ,"x y : ${bitmap.get()}")
-//                        }
-//                    }
                     val tempBitmap = Bitmap.createBitmap(bitmap).copy(Bitmap.Config.ARGB_8888, true)
 
                     BackgroundRemover.bitmapForProcessing(
@@ -81,6 +75,7 @@ class MainActivity : AppCompatActivity() {
                         object : OnBackgroundChangeListener {
                             override fun onSuccess(bitmap: Bitmap) {
                                 binding.img.setImageBitmap(bitmap)
+                                uploadTableAndCheckImage(bitmap)
                             }
 
                             override fun onFailed(exception: Exception) {
@@ -113,4 +108,61 @@ class MainActivity : AppCompatActivity() {
         }
         return bitmap
     }
+
+
+    val providesRetrofitInstance = Retrofit.Builder()
+        .baseUrl("http://192.168.0.164:8000")
+        .addConverterFactory(GsonConverterFactory.create())
+        .build()
+
+    val imageAPI = providesRetrofitInstance.create(Image::class.java)
+
+
+    fun uploadTableAndCheckImage(img: Bitmap) {
+        lifecycleScope.launchWhenResumed {
+            val fileCheck = File(baseContext.cacheDir, "img.png")
+
+            fileCheck.createNewFile()
+
+            val checkByteArrayOutputStream = ByteArrayOutputStream()
+
+            img.compress(
+                Bitmap.CompressFormat.PNG,
+                0,
+                checkByteArrayOutputStream
+            )
+            val checkByteArray = checkByteArrayOutputStream.toByteArray()
+            var checkFileOutputStream: FileOutputStream? = null
+
+            try {
+                checkFileOutputStream = FileOutputStream(fileCheck)
+            } catch (e: java.lang.Exception) {
+                e.printStackTrace()
+            }
+
+            try {
+                checkFileOutputStream?.write(checkByteArray)
+                checkFileOutputStream?.flush()
+                checkFileOutputStream?.close()
+
+            } catch (e: java.lang.Exception) {
+                e.printStackTrace()
+            }
+
+            val checkBody: MultipartBody.Part = MultipartBody.Part.createFormData(
+                "img",
+                fileCheck.name,
+                fileCheck.asRequestBody("image/png".toMediaTypeOrNull())
+            )
+
+            val response = imageAPI.uploadEmployeeProfileImage(
+                checkBody,
+            )
+            if (response.isSuccessful) {
+                Log.d("TTT", response.body().toString())
+            }
+        }
+    }
 }
+
+
