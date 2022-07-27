@@ -5,7 +5,6 @@ pluginManagement {
         mavenCentral()
         maven { url "https://jitpack.io" }
         jcenter()
-
     }
 }
 dependencyResolutionManagement {
@@ -15,8 +14,8 @@ dependencyResolutionManagement {
         mavenCentral()
         maven { url "https://jitpack.io" }
         jcenter()
-
     }
 }
 rootProject.name = "BackgroundRemoverLibrary"
 include ':app'
+include ':bgRemover'
